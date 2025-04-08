@@ -1,0 +1,12 @@
+lightning
+matplotlib
+torch
+torchaudio
+torchmetrics
+torchvision
+hydra-core
+wandb
+diffusers
+transformers
+rasterio
+einops

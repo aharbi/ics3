@@ -111,6 +111,10 @@ class OpenEarthMapDataset(Dataset):
 
         image, label = self.slice_sample(image=image, label=label)
 
+        # TODO: Check if this is necessary
+        image = image.astype(np.float32)
+        label = label.astype(np.float32)
+
         return image, label
 
 
