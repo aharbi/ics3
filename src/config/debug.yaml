@@ -1,0 +1,36 @@
+defaults:
+  - model: vit
+  - datamodule: default
+
+hydra:
+  run:
+    dir: ./logs/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+logger:
+  project: "ics3"
+  save_dir: "./logs/"
+
+experiment:
+  name: "debug-model"
+  tags: ["debug"]
+  train: true
+  test: false
+
+datamodule:
+  batch_size: 4
+
+loss:
+  _target_: utils.DiceLoss
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 3e-4
+
+trainer:
+  _target_: lightning.Trainer
+  default_root_dir: "./logs/"
+  log_every_n_steps: 1
+  accelerator: "cpu"
+  precision: 32
+  accumulate_grad_batches: 4
+  max_epochs: 20
