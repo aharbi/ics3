@@ -209,9 +209,9 @@ if __name__ == "__main__":
     data_dir = Path("data/OpenEarthMap_wo_xBD")
     dataset = OpenEarthMapDataset(
         data_dir=data_dir,
-        patch_size=512,
+        patch_size=200,
         number_of_samples=10,
-        classes=["Road"],
+        classes=["Road", "Building"],
         regions=["aachen"],
     )
 
@@ -220,15 +220,15 @@ if __name__ == "__main__":
     image, label = dataset[0]
 
     image = image.transpose(1, 2, 0)
-    label = label.transpose(1, 2, 0)
+    label = label.transpose(1, 2, 0)[:, : , 0]
 
-    plt.subplot(1, 3, 1)
-    plt.imshow(image)
-    plt.title("Image")
-    plt.subplot(1, 3, 2)
-    plt.imshow(label)
-    plt.title("Label")
-    plt.subplot(1, 3, 3)
-    plt.imshow(image * label)
-    plt.title("Image * Label")
-    plt.show()
+    from PIL import Image
+
+    image = Image.fromarray((image * 255).astype(np.uint8))
+    label = Image.fromarray((label * 255).astype(np.uint8), mode="L")
+    image = image.resize((512, 512))
+    label = label.resize((512, 512))
+
+    image.save("image.png")
+    label.save("label.png")
+

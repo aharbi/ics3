@@ -1,0 +1,18 @@
+_target_: models.unet.UNet
+sample_size: 256
+in_channels: 3
+out_channels: 1
+layers_per_block: 1
+block_out_channels:
+  - 32
+  - 64
+  - 128
+down_block_types:
+  - "DownBlock2D"
+  - "DownBlock2D"
+  - "DownBlock2D"
+up_block_types:
+  - "UpBlock2D"
+  - "UpBlock2D"
+  - "UpBlock2D"
+add_attention: false

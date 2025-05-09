@@ -5,6 +5,8 @@ from hydra.utils import instantiate
 
 from src.utils import prediction_figure
 
+import matplotlib.pyplot as plt
+
 
 class BaseModel(L.LightningModule):
     def __init__(
@@ -26,6 +28,19 @@ class BaseModel(L.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.loss(y_hat, y)
+
+        satellite_image = x[0].half().cpu().detach().numpy()
+        prediction = y_hat[0].half().cpu().detach().numpy()
+        ground_truth = y[0].half().cpu().detach().numpy()
+
+        fig = prediction_figure(
+            satellite_image=satellite_image,
+            prediction=prediction,
+            ground_truth=ground_truth,
+        )
+
+        plt.show()
+
         self.log(name="train/loss", value=loss, on_step=True)
         return loss
 
