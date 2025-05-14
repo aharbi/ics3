@@ -5,6 +5,7 @@ from omegaconf import DictConfig
 from torch import Tensor
 
 from hydra.utils import instantiate
+from torchmetrics import MetricCollection
 from torchmetrics.segmentation import MeanIoU
 
 from src.utils import joint_prediction_figure, prediction_figure
@@ -18,7 +19,20 @@ class BaseModel(L.LightningModule):
         super().__init__()
         self.cfg = cfg
 
-        self.metric = MeanIoU(num_classes=2)
+        self.val_regions = self.cfg.datamodule.regions.val
+        self.test_regions = self.cfg.datamodule.regions.test
+
+        self.val_metric = MeanIoU(num_classes=2)
+        self.test_metric = MeanIoU(num_classes=2)
+
+        self.region_wise_val_metric = MetricCollection(
+            {r: MeanIoU(num_classes=2) for r in self.val_regions},
+            prefix="val/mean_iou/",
+        )
+        self.region_wise_test_metric = MetricCollection(
+            {r: MeanIoU(num_classes=2) for r in self.test_regions},
+            prefix="test/mean_iou/",
+        )
 
         if cfg is not None:
             self.loss_fn = instantiate(cfg.loss)
@@ -52,13 +66,32 @@ class BaseModel(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        self.evaluation_step(batch, batch_idx, split="val")
+        self.evaluation_step(
+            batch,
+            batch_idx,
+            metric=self.val_metric,
+            region_wise_metric=self.region_wise_val_metric,
+            split="val",
+        )
 
     def test_step(self, batch, batch_idx):
-        self.evaluation_step(batch, batch_idx, split="test", log_predictions=True)
+        self.evaluation_step(
+            batch,
+            batch_idx,
+            metric=self.test_metric,
+            region_wise_metric=self.region_wise_test_metric,
+            split="test",
+            log_predictions=True,
+        )
 
     def evaluation_step(
-        self, batch, batch_idx, split: str, log_predictions: bool = False
+        self,
+        batch,
+        batch_idx,
+        metric: callable,
+        region_wise_metric: dict,
+        split: str,
+        log_predictions: bool = False,
     ):
         x = batch["satellite_image"]
         y = batch["label"]
@@ -85,24 +118,24 @@ class BaseModel(L.LightningModule):
 
             batch_size = y_hat_region.shape[0]
 
-            iou = self.metric(y_hat_region, y_region)
+            region_wise_metric[region](y_hat_region, y_region)
 
             self.log(
-                name=f"{split}/mean_iou/{region.item()}",
-                value=iou,
+                name=f"{split}/mean_iou/{region}",
+                value=region_wise_metric[region],
                 on_step=False,
                 on_epoch=True,
                 batch_size=batch_size,
             )
 
         # Total mean IoU
-        iou = self.metric(y_hat_binary, y_binary)
+        metric(y_hat_binary, y_binary)
 
         batch_size = y_binary.shape[0]
 
         self.log(
             name=f"{split}/mean_iou",
-            value=iou,
+            value=metric,
             on_step=False,
             on_epoch=True,
             batch_size=batch_size,

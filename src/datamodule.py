@@ -165,9 +165,6 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.persistent_workers = persistent_workers
         self.pin_memory = pin_memory
 
-        self.prepare_data()
-        self.setup(stage="fit")
-
     def setup(self, stage: str):
 
         self.train_dataset = OpenEarthMapDataset(

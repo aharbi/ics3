@@ -16,9 +16,7 @@ def run(cfg: DictConfig):
 
     datamodule: OpenEarthMapDataModule = instantiate(config=cfg.datamodule)
 
-    model: BaseModel = instantiate(
-        config=cfg.model, cfg=cfg, _recursive_=False
-    )
+    model: BaseModel = instantiate(config=cfg.model, cfg=cfg, _recursive_=False)
 
     if cfg.experiment.checkpoint is not None:
         ckpt_path = cfg.experiment.checkpoint
