@@ -9,4 +9,6 @@ wandb
 diffusers
 transformers
 rasterio
+geopandas
+pyproj
 einops

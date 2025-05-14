@@ -3,7 +3,16 @@ _target_: "datamodule.OpenEarthMapDataModule"
 # Dataset parameters
 data_dir: "data/OpenEarthMap_wo_xBD/"
 patch_size: 256
-number_of_samples: 1000
+
+number_of_samples:
+  train: 1000
+  val: 100
+  test: 100
+
+number_of_context_samples:
+  train: 4
+  val: 4
+  test: 4
 
 classes:
   - "Road"
@@ -15,9 +24,11 @@ regions:
 
   val:
     - "chicago"
+    - "aachen"
 
   test:
     - "chicago"
+    - "aachen"
 
 # DataLoader parameters
 batch_size: 1

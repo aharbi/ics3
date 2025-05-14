@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from torch import Tensor
 from diffusers import UNet2DModel
 
 from src.model import BaseModel
@@ -31,6 +32,7 @@ class UNet(BaseModel):
         **kwargs,
     ):
         super(UNet, self).__init__(*args, **kwargs)
+        self.save_hyperparameters()
 
         self.unet = UNet2DModel(
             sample_size=sample_size,
@@ -46,9 +48,11 @@ class UNet(BaseModel):
         # TODO: Temporary for binary problems
         self.output_activation = nn.Sigmoid()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
 
         x = self.unet(x, timestep=0).sample
+
+        x = self.output_activation(x)
 
         return x
 

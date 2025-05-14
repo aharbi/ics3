@@ -15,6 +15,7 @@ class OpenEarthMapDataset(Dataset):
         data_dir: Path,
         patch_size: int = 256,
         number_of_samples: int = 1000,
+        number_of_context_samples: int = 0,
         classes: list[str] = ["Road"],
         regions: list[str] = None,
         *args,
@@ -25,6 +26,7 @@ class OpenEarthMapDataset(Dataset):
 
         self.patch_size = patch_size
         self.number_of_samples = number_of_samples
+        self.number_of_context_samples = number_of_context_samples
         self.classes = classes
         self.regions = regions
 
@@ -84,22 +86,16 @@ class OpenEarthMapDataset(Dataset):
 
         return image, label
 
-    def select_random_samples(self, files, number_of_samples=1):
+    def select_random_samples(self, region=None):
         # TODO: Weight probability of each region per number of samples
-        region = np.random.choice(list(files.keys()))
-        region_files = files[region]
+        if region is None:
+            region = np.random.choice(list(self.files.keys()))
 
-        idx = np.random.choice(len(region_files), size=number_of_samples)
+        region_files = self.files[region]
 
-        # TODO: Return multiple samples
-        file = region_files[idx[0]]
-        return file, region
+        idx = np.random.choice(len(region_files))
 
-    def __len__(self):
-        return self.number_of_samples
-
-    def __getitem__(self, idx):
-        file, region = self.select_random_samples(self.files, number_of_samples=1)
+        file = region_files[idx]
 
         region_path = os.path.join(self.data_dir, region)
 
@@ -115,7 +111,26 @@ class OpenEarthMapDataset(Dataset):
         image = image.astype(np.float32)
         label = label.astype(np.float32)
 
-        return image, label
+        return image, label, region
+
+    def __len__(self):
+        return self.number_of_samples
+
+    def __getitem__(self, idx):
+        image, label, region = self.select_random_samples()
+
+        context_set = []
+
+        for i in range(self.number_of_context_samples):
+            context_image, context_label, _ = self.select_random_samples(region=region)
+            context_set.append((context_image, context_label))
+
+        return {
+            "satellite_image": image,
+            "label": label,
+            "region": region,
+            "context_set": context_set,
+        }
 
 
 class OpenEarthMapDataModule(L.LightningDataModule):
@@ -123,7 +138,8 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self,
         data_dir: Path,
         patch_size: int = 256,
-        number_of_samples: int = 1000,
+        number_of_samples: dict = {"train": 1000, "val": 100, "test": 100},
+        number_of_context_samples: dict = {"train": 0, "val": 0, "test": 0},
         classes: list[str] = ["Road"],
         regions: dict = None,
         batch_size: int = 8,
@@ -139,6 +155,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         # Dataset parameters
         self.patch_size = patch_size
         self.number_of_samples = number_of_samples
+        self.number_of_context_samples = number_of_context_samples
         self.classes = classes
         self.regions = regions
 
@@ -156,7 +173,8 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.train_dataset = OpenEarthMapDataset(
             data_dir=self.data_dir,
             patch_size=self.patch_size,
-            number_of_samples=self.number_of_samples,
+            number_of_samples=self.number_of_samples["train"],
+            number_of_context_samples=self.number_of_context_samples["train"],
             classes=self.classes,
             regions=self.regions["train"],
         )
@@ -164,7 +182,8 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.val_dataset = OpenEarthMapDataset(
             data_dir=self.data_dir,
             patch_size=self.patch_size,
-            number_of_samples=self.number_of_samples,
+            number_of_samples=self.number_of_samples["val"],
+            number_of_context_samples=self.number_of_context_samples["val"],
             classes=self.classes,
             regions=self.regions["val"],
         )
@@ -172,7 +191,8 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.test_dataset = OpenEarthMapDataset(
             data_dir=self.data_dir,
             patch_size=self.patch_size,
-            number_of_samples=self.number_of_samples,
+            number_of_samples=self.number_of_samples["test"],
+            number_of_context_samples=self.number_of_context_samples["test"],
             classes=self.classes,
             regions=self.regions["test"],
         )
@@ -203,32 +223,3 @@ class OpenEarthMapDataModule(L.LightningDataModule):
             persistent_workers=self.persistent_workers,
             pin_memory=self.pin_memory,
         )
-
-
-if __name__ == "__main__":
-    data_dir = Path("data/OpenEarthMap_wo_xBD")
-    dataset = OpenEarthMapDataset(
-        data_dir=data_dir,
-        patch_size=200,
-        number_of_samples=10,
-        classes=["Road", "Building"],
-        regions=["aachen"],
-    )
-
-    import matplotlib.pyplot as plt
-
-    image, label = dataset[0]
-
-    image = image.transpose(1, 2, 0)
-    label = label.transpose(1, 2, 0)[:, : , 0]
-
-    from PIL import Image
-
-    image = Image.fromarray((image * 255).astype(np.uint8))
-    label = Image.fromarray((label * 255).astype(np.uint8), mode="L")
-    image = image.resize((512, 512))
-    label = label.resize((512, 512))
-
-    image.save("image.png")
-    label.save("label.png")
-

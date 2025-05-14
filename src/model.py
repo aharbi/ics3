@@ -1,11 +1,13 @@
 import lightning as L
 
+from pathlib import Path
 from omegaconf import DictConfig
+from torch import Tensor
+
 from hydra.utils import instantiate
+from torchmetrics.segmentation import MeanIoU
 
-from src.utils import prediction_figure
-
-import matplotlib.pyplot as plt
+from src.utils import joint_prediction_figure, prediction_figure
 
 
 class BaseModel(L.LightningModule):
@@ -18,56 +20,117 @@ class BaseModel(L.LightningModule):
         self.cfg = cfg
         self.datamodule = datamodule
 
+        self.metric = MeanIoU(num_classes=2)
+
         if cfg is not None:
             self.loss_fn = instantiate(cfg.loss)
 
-    def loss(self, y_hat, y):
+    def predict(self, x: Tensor, context_set: list = None):
+        y_hat = self(x)
+        return y_hat
+
+    def loss(self, y_hat: Tensor, y: Tensor):
         return self.loss_fn(y_hat, y)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
+        x = batch["satellite_image"]
+        y = batch["label"]
+        context_set = batch["context_set"]
+
+        y_hat = self.predict(x=x, context_set=context_set)
         loss = self.loss(y_hat, y)
-
-        satellite_image = x[0].half().cpu().detach().numpy()
-        prediction = y_hat[0].half().cpu().detach().numpy()
-        ground_truth = y[0].half().cpu().detach().numpy()
-
-        fig = prediction_figure(
-            satellite_image=satellite_image,
-            prediction=prediction,
-            ground_truth=ground_truth,
-        )
-
-        plt.show()
 
         self.log(name="train/loss", value=loss, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
+        self.evaluation_step(batch, batch_idx, split="val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluation_step(batch, batch_idx, split="test", log_predictions=True)
+
+    def evaluation_step(
+        self, batch, batch_idx, split: str, log_predictions: bool = False
+    ):
+        x = batch["satellite_image"]
+        y = batch["label"]
+        context_set = batch["context_set"]
+        regions = batch["region"]
+
+        y_hat = self.predict(x=x, context_set=context_set)
         loss = self.loss(y_hat, y)
 
-        self.log(name="val/loss", value=loss, on_step=True)
+        y_hat_binary = (y_hat > 0.5).long()
+        y_binary = (y > 0.5).long()
+
+        # Region-wise mean IoU
+        regions_unique = list(set(regions))
+
+        for region in regions_unique:
+            region_mask = [r == region for r in regions]
+            y_hat_region = y_hat_binary[region_mask]
+            y_region = y_binary[region_mask]
+
+            iou = self.metric(y_hat_region, y_region)
+
+            self.log(
+                name=f"{split}/mean_iou/{region.item()}",
+                value=iou,
+                on_step=False,
+                on_epoch=True,
+            )
+
+        # Total mean IoU
+        iou = self.metric(y_hat_binary, y_binary)
+
+        self.log(name=f"{split}/mean_iou", value=iou, on_step=False, on_epoch=True)
+        self.log(name=f"{split}/loss", value=loss, on_step=False, on_epoch=True)
 
         if batch_idx == 0:
             satellite_image = x[0].half().cpu().numpy()
             prediction = y_hat[0].half().cpu().numpy()
             ground_truth = y[0].half().cpu().numpy()
 
-            fig = prediction_figure(
+            fig = joint_prediction_figure(
                 satellite_image=satellite_image,
                 prediction=prediction,
                 ground_truth=ground_truth,
             )
 
             self.logger.log_image(
-                key="val/predictions",
+                key=f"{split}/predictions",
                 images=[fig],
             )
 
-        return loss
+        if log_predictions:
+            log_path = Path(self.cfg.trainer.default_root_dir)
+            log_path = log_path / f"predictions/{split}/"
+
+            if not log_path.exists():
+                log_path.mkdir(parents=True, exist_ok=True)
+
+            # Log every image
+            for i in range(len(x)):
+                satellite_image = x[i].half().cpu().numpy()
+                prediction = y_hat[i].half().cpu().numpy()
+                ground_truth = y[i].half().cpu().numpy()
+                region = regions[i].item()
+
+                image, prediction, ground_truth = prediction_figure(
+                    satellite_image=satellite_image,
+                    prediction=prediction,
+                    ground_truth=ground_truth,
+                )
+
+                path_image = log_path / f"{region}_{batch_idx}_{i}_image.png"
+                path_prediction = log_path / f"{region}_{batch_idx}_{i}_label.png"
+                path_ground_truth = (
+                    log_path / f"{region}_{batch_idx}_{i}_ground_truth.png"
+                )
+
+                image.save(path_image)
+                prediction.save(path_prediction)
+                ground_truth.save(path_ground_truth)
 
     def configure_optimizers(self):
         return instantiate(self.cfg.optimizer, params=self.parameters())

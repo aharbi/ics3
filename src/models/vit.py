@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from torch import Tensor
 from einops import rearrange
 
 from src.model import BaseModel
@@ -22,6 +23,8 @@ class VisionTransformer(BaseModel):
         **kwargs,
     ):
         super(VisionTransformer, self).__init__(*args, **kwargs)
+        self.save_hyperparameters()
+
         self.patch_size = patch_size
 
         grid_size = img_size // patch_size
@@ -50,7 +53,7 @@ class VisionTransformer(BaseModel):
         # TODO: Temporary for binary problems
         self.output_activation = nn.Sigmoid()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         B, C, H, W = x.shape
 
         # Shape: (B, hidden_dim, grid, grid)

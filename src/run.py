@@ -3,7 +3,8 @@ import hydra
 
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
-from pytorch_lightning.loggers import WandbLogger
+from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from model import BaseModel
 from datamodule import OpenEarthMapDataModule
@@ -18,6 +19,14 @@ def run(cfg: DictConfig):
         config=cfg.model, cfg=cfg, datamodule=datamodule, _recursive_=False
     )
 
+    if cfg.experiment.checkpoint is not None:
+        ckpt_path = cfg.experiment.checkpoint
+        model = type(model).load_from_checkpoint(
+            ckpt_path,
+            cfg=cfg,
+            datamodule=datamodule,
+        )
+
     logger = WandbLogger(
         name=cfg["experiment"]["name"],
         project=cfg["logger"]["project"],
@@ -26,7 +35,16 @@ def run(cfg: DictConfig):
         config=OmegaConf.to_container(cfg, resolve=True),
     )
 
-    trainer: L.Trainer = instantiate(cfg.trainer, logger=logger)
+    checkpoint_callback = ModelCheckpoint(
+        save_top_k=1,
+        verbose=True,
+        monitor="val/mean_iou",
+        mode="max",
+    )
+
+    trainer: L.Trainer = instantiate(
+        cfg.trainer, logger=logger, callbacks=[checkpoint_callback]
+    )
 
     if cfg["experiment"]["train"]:
         trainer.fit(model, datamodule)

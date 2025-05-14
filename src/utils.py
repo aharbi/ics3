@@ -1,23 +1,36 @@
-import torch
+import os
+import rasterio
+import geopandas as gpd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from torch import Tensor
-
-
-class DiceLoss(torch.nn.Module):
-    def __init__(self, eps: float = 1e-6):
-        super().__init__()
-        self.eps = eps
-
-    def forward(self, prediction: Tensor, ground_truth: Tensor) -> float:
-        intersection = torch.sum(prediction * ground_truth)
-        return 1 - (2.0 * intersection + self.eps) / (
-            torch.sum(prediction) + torch.sum(ground_truth) + self.eps
-        )
+from PIL import Image
+from pathlib import Path
+from pyproj import Transformer
+from shapely.geometry import Point
 
 
 def prediction_figure(
+    satellite_image: np.array, prediction: np.array, ground_truth: np.array
+):
+
+    satellite_image = satellite_image.transpose(1, 2, 0)
+
+    satellite_image = (satellite_image * 255).astype(np.uint8)
+    prediction = (prediction * 255).astype(np.uint8)
+    ground_truth = (ground_truth * 255).astype(np.uint8)
+
+    prediction = prediction.squeeze()
+    ground_truth = ground_truth.squeeze()
+
+    image = Image.fromarray(satellite_image)
+    prediction = Image.fromarray(prediction, mode="L")
+    ground_truth = Image.fromarray(ground_truth, mode="L")
+
+    return image, prediction, ground_truth
+
+
+def joint_prediction_figure(
     satellite_image: np.array, prediction: np.array, ground_truth: np.array = None
 ):
 
@@ -48,3 +61,74 @@ def prediction_figure(
         axes[2].axis("off")
 
     return fig
+
+
+def get_dataset_lat_lon(dataset_path: Path):
+
+    regions = os.listdir(dataset_path)
+
+    regions_data = {}
+
+    for region in regions:
+        region_path = dataset_path / region / "images"
+
+        if not region_path.is_dir():
+            continue
+
+        images = os.listdir(region_path)
+
+        num_images = len(images)
+
+        if num_images == 0:
+            print(f"No images found in {region_path}")
+            continue
+
+        image = images[0]
+
+        image_path = region_path / image
+        with rasterio.open(image_path) as src:
+            metadata = src.meta
+            width = metadata["width"]
+            height = metadata["height"]
+            crs = metadata["crs"]
+            transform = metadata["transform"]
+
+        transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+
+        row = height // 2
+        col = width // 2
+
+        x, y = transform * (col, row)
+
+        lon, lat = transformer.transform(x, y)
+
+        regions_data[region] = {
+            "num_images": num_images,
+            "latitude": lat,
+            "longitude": lon,
+        }
+
+    return regions_data
+
+
+def regions_to_geojson(regions_data: dict, output_path: Path):
+    data = []
+    for region, info in regions_data.items():
+        point = Point(info["longitude"], info["latitude"])
+        data.append(
+            {"region": region, "num_images": info["num_images"], "geometry": point}
+        )
+
+    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
+
+    output_path = output_path / "regions.geojson"
+
+    gdf.to_file(output_path, driver="GeoJSON")
+
+
+if __name__ == "__main__":
+    dataset_path = Path("/Users/aziz/git/ics3/data/OpenEarthMap_wo_xBD/")
+    output_path = Path("/Users/aziz/git/ics3/data/")
+
+    regions = get_dataset_lat_lon(dataset_path)
+    regions_to_geojson(regions, output_path)
