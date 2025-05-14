@@ -5,14 +5,14 @@ data_dir: "data/OpenEarthMap_wo_xBD/"
 patch_size: 256
 
 number_of_samples:
-  train: 1000
-  val: 100
-  test: 100
+  train: 6300
+  val: 3200
+  test: 2900
 
 number_of_context_samples:
-  train: 4
-  val: 4
-  test: 4
+  train: 0
+  val: 0
+  test: 0
 
 classes:
   - "Road"
@@ -20,18 +20,88 @@ classes:
 
 regions:
   train:
+    - "soriano"
+    - "coxsbazar"
+    - "lima"
+    - "paris"
+    - "santiago"
+    - "svaneti"
+    - "western"
+    - "chiclayo"
+    - "shanghai"
+    - "tonga"
+    - "aachen"
+    - "swietokrzyskie"
+    - "rotterdam"
+    - "muenster"
+    - "san_tome"
     - "chicago"
+    - "bielefeld"
+    - "kitsap"
+    - "pisco"
+    - "wielkopolskie"
+    - "tokyo"
+    - "malopolskie"
+    - "duesseldorf"
+    - "mazowieckie"
+    - "zachodniopomorskie"
+    - "kagera"
+    - "lambayeque"
+    - "rio"
+    - "pomorskie"
+    - "viru"
+    - "vienna"
+    - "lodzkie"
+    - "vegas"
+    - "podkarpackie"
+    - "buenos_aires"
+    - "sechura"
+    - "dhaka"
+    - "mahe"
+    - "kyoto"
+    - "tyrolw"
+    - "accra"
+    - "khartoum"
+    - "koeln"
+    - "daressalaam"
+    - "zanzibar"
+    - "pointenoire"
+    - "podlaskie"
+    - "dowa"
+    - "monrovia"
+    - "dortmund"
+    - "dolnoslaskie"
+    - "baybay"
+    - "ica"
+    - "chisinau"
+    - "piura"
+    - "ngaoundere"
+    - "abancay"
+    - "christchurch"
+    - "warminsko-mazurskie"
+    - "chincha"
+    - "slaskie"
 
   val:
-    - "chicago"
-    - "aachen"
+    - "austin"
+    - "ulaanbaatar"
+    - "lubuskie"
+    - "rosario"
+    - "kinshasa"
+    - "kampala"
+    - "al_qurnah"
 
   test:
-    - "chicago"
-    - "aachen"
+    - "melbourne"
+    - "kujawsko-pomorskie"
+    - "bogota"
+    - "lohur"
+    - "maputo"
+    - "niamey"
+    - "chiangmai"
 
 # DataLoader parameters
 batch_size: 1
-num_workers: 1
-persistent_workers: false
+num_workers: 16
+persistent_workers: true
 pin_memory: false

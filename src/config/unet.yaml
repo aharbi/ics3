@@ -1,5 +1,5 @@
 defaults:
-  - model: vit
+  - model: unet
   - datamodule: default
 
 hydra:
@@ -11,35 +11,28 @@ logger:
   save_dir: "./logs/"
 
 experiment:
-  name: "debug-model"
-  tags: ["debug"]
+  name: "unet-model"
+  tags: ["unet"]
   train: true
   test: true
   checkpoint: null
 
 datamodule:
-  batch_size: 1
-  num_workers: 2
-  number_of_samples:
-    train: 20
-    val: 20
-    test: 20
-
-model:
-  num_layers: 2
+  batch_size: 32
 
 loss:
   _target_: loss.BCEDiceLoss
-  alpha: 1.0
+  alpha: 0.5
 
 optimizer:
   _target_: torch.optim.AdamW
   lr: 3e-3
+  weight_decay: 0.01
 
 trainer:
   _target_: lightning.Trainer
   default_root_dir: "./logs/"
   log_every_n_steps: 1
-  accelerator: "cpu"
+  accelerator: "cuda"
   precision: 32
-  max_epochs: 1
+  max_epochs: 20
