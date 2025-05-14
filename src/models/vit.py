@@ -5,6 +5,7 @@ from torch import Tensor
 from einops import rearrange
 
 from src.model import BaseModel
+from src.models.transformer import Transformer
 
 
 class VisionTransformer(BaseModel):
@@ -15,7 +16,7 @@ class VisionTransformer(BaseModel):
         img_size: int,
         patch_size: int = 16,
         hidden_dim: int = 768,
-        mlp_dim: int = 2048,
+        mlp_ratio: int = 2,
         num_layers: int = 12,
         num_heads: int = 12,
         dropout: float = 0.1,
@@ -36,21 +37,18 @@ class VisionTransformer(BaseModel):
 
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_dim))
 
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=num_heads,
+        self.transformer = Transformer(
+            dim=hidden_dim,
+            depth=num_layers,
+            heads=num_heads,
+            mlp_ratio=mlp_ratio,
             dropout=dropout,
-            dim_feedforward=mlp_dim,
-            batch_first=True,
         )
-
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
         self.output_projection = nn.Linear(
             hidden_dim, patch_size * patch_size * out_channels
         )
 
-        # TODO: Temporary for binary problems
         self.output_activation = nn.Sigmoid()
 
     def forward(self, x: Tensor) -> Tensor:

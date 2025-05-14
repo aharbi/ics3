@@ -45,7 +45,6 @@ class UNet(BaseModel):
             add_attention=add_attention,
         )
 
-        # TODO: Temporary for binary problems
         self.output_activation = nn.Sigmoid()
 
     def forward(self, x: Tensor) -> Tensor:

@@ -1,5 +1,6 @@
 import lightning as L
 import hydra
+import logging
 
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
@@ -16,7 +17,7 @@ def run(cfg: DictConfig):
     datamodule: OpenEarthMapDataModule = instantiate(config=cfg.datamodule)
 
     model: BaseModel = instantiate(
-        config=cfg.model, cfg=cfg, datamodule=datamodule, _recursive_=False
+        config=cfg.model, cfg=cfg, _recursive_=False
     )
 
     if cfg.experiment.checkpoint is not None:
@@ -24,8 +25,9 @@ def run(cfg: DictConfig):
         model = type(model).load_from_checkpoint(
             ckpt_path,
             cfg=cfg,
-            datamodule=datamodule,
         )
+
+        logging.info(f"Loaded model from {ckpt_path}")
 
     logger = WandbLogger(
         name=cfg["experiment"]["name"],

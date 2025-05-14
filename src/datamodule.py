@@ -121,7 +121,7 @@ class OpenEarthMapDataset(Dataset):
 
         context_set = []
 
-        for i in range(self.number_of_context_samples):
+        for _ in range(self.number_of_context_samples):
             context_image, context_label, _ = self.select_random_samples(region=region)
             context_set.append((context_image, context_label))
 

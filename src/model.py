@@ -14,11 +14,9 @@ class BaseModel(L.LightningModule):
     def __init__(
         self,
         cfg: DictConfig = None,
-        datamodule: L.LightningDataModule = None,
     ):
         super().__init__()
         self.cfg = cfg
-        self.datamodule = datamodule
 
         self.metric = MeanIoU(num_classes=2)
 
@@ -38,9 +36,19 @@ class BaseModel(L.LightningModule):
         context_set = batch["context_set"]
 
         y_hat = self.predict(x=x, context_set=context_set)
-        loss = self.loss(y_hat, y)
 
-        self.log(name="train/loss", value=loss, on_step=True)
+        if type(y_hat) is list:
+            loss = 0
+            for i in range(len(y_hat) - 1):
+                y_i = context_set[i][1]
+                loss += self.loss(y_hat[i], y_i)
+            loss += self.loss(y_hat[-1], y)
+        else:
+            loss = self.loss(y_hat, y)
+
+        batch_size = x.shape[0]
+
+        self.log(name="train/loss", value=loss, on_step=True, batch_size=batch_size)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -58,6 +66,10 @@ class BaseModel(L.LightningModule):
         regions = batch["region"]
 
         y_hat = self.predict(x=x, context_set=context_set)
+
+        if type(y_hat) is list:
+            y_hat = y_hat[-1]
+
         loss = self.loss(y_hat, y)
 
         y_hat_binary = (y_hat > 0.5).long()
@@ -71,6 +83,8 @@ class BaseModel(L.LightningModule):
             y_hat_region = y_hat_binary[region_mask]
             y_region = y_binary[region_mask]
 
+            batch_size = y_hat_region.shape[0]
+
             iou = self.metric(y_hat_region, y_region)
 
             self.log(
@@ -78,13 +92,28 @@ class BaseModel(L.LightningModule):
                 value=iou,
                 on_step=False,
                 on_epoch=True,
+                batch_size=batch_size,
             )
 
         # Total mean IoU
         iou = self.metric(y_hat_binary, y_binary)
 
-        self.log(name=f"{split}/mean_iou", value=iou, on_step=False, on_epoch=True)
-        self.log(name=f"{split}/loss", value=loss, on_step=False, on_epoch=True)
+        batch_size = y_binary.shape[0]
+
+        self.log(
+            name=f"{split}/mean_iou",
+            value=iou,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch_size,
+        )
+        self.log(
+            name=f"{split}/loss",
+            value=loss,
+            on_step=False,
+            on_epoch=True,
+            batch_size=batch_size,
+        )
 
         if batch_idx == 0:
             satellite_image = x[0].half().cpu().numpy()
@@ -104,7 +133,9 @@ class BaseModel(L.LightningModule):
 
         if log_predictions:
             log_path = Path(self.cfg.trainer.default_root_dir)
-            log_path = log_path / f"predictions/{split}/"
+            experiment_name = self.cfg.experiment.name
+
+            log_path = log_path / f"predictions/{experiment_name}/{split}/"
 
             if not log_path.exists():
                 log_path.mkdir(parents=True, exist_ok=True)
@@ -123,7 +154,7 @@ class BaseModel(L.LightningModule):
                 )
 
                 path_image = log_path / f"{region}_{batch_idx}_{i}_image.png"
-                path_prediction = log_path / f"{region}_{batch_idx}_{i}_label.png"
+                path_prediction = log_path / f"{region}_{batch_idx}_{i}_prediction.png"
                 path_ground_truth = (
                     log_path / f"{region}_{batch_idx}_{i}_ground_truth.png"
                 )
