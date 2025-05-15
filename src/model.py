@@ -20,20 +20,21 @@ class BaseModel(L.LightningModule):
         super().__init__()
         self.cfg = cfg
 
-        self.val_regions = self.cfg.datamodule.regions.val
-        self.test_regions = self.cfg.datamodule.regions.test
-
         self.val_metric = MeanIoU(num_classes=2)
         self.test_metric = MeanIoU(num_classes=2)
 
-        self.region_wise_val_metric = MetricCollection(
-            {r: MeanIoU(num_classes=2) for r in self.val_regions},
-            prefix="val/mean_iou/",
-        )
-        self.region_wise_test_metric = MetricCollection(
-            {r: MeanIoU(num_classes=2) for r in self.test_regions},
-            prefix="test/mean_iou/",
-        )
+        if cfg is not None:
+            self.val_regions = self.cfg.datamodule.regions.val
+            self.test_regions = self.cfg.datamodule.regions.test
+
+            self.region_wise_val_metric = MetricCollection(
+                {r: MeanIoU(num_classes=2) for r in self.val_regions},
+                prefix="val/mean_iou/",
+            )
+            self.region_wise_test_metric = MetricCollection(
+                {r: MeanIoU(num_classes=2) for r in self.test_regions},
+                prefix="test/mean_iou/",
+            )
 
         if cfg is not None:
             self.loss_fn = instantiate(cfg.loss)
@@ -44,6 +45,23 @@ class BaseModel(L.LightningModule):
 
     def loss(self, y_hat: Tensor, y: Tensor):
         return self.loss_fn(y_hat, y)
+
+    def _freeze_transformer(self):
+        for param in self.transformer.parameters():
+            param.requires_grad = False
+
+    def _unfreeze_transformer(self):
+        for param in self.transformer.parameters():
+            param.requires_grad = True
+
+    def on_train_epoch_start(self):
+
+        if not hasattr(self, "transformer"):
+            return
+       
+        if self.current_epoch == self.unfreeze_epoch:
+            print("Unfreezing transformer")
+            self._unfreeze_transformer()
 
     def training_step(self, batch, batch_idx):
         x = batch["satellite_image"]

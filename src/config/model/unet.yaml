@@ -1,5 +1,5 @@
 _target_: models.unet.UNet
-sample_size: 256
+sample_size: 224
 in_channels: 3
 out_channels: 1
 layers_per_block: 2

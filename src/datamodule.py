@@ -1,8 +1,10 @@
 import os
 import glob
 import lightning as L
+import torch
 import numpy as np
 import rasterio
+import torch.nn.functional as F
 
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
@@ -16,6 +18,7 @@ class OpenEarthMapDataset(Dataset):
         patch_size: int = 256,
         number_of_samples: int = 1000,
         number_of_context_samples: int = 0,
+        downsample: int = 2,
         classes: list[str] = ["Road"],
         regions: list[str] = None,
         *args,
@@ -25,6 +28,7 @@ class OpenEarthMapDataset(Dataset):
         self.data_dir = data_dir
 
         self.patch_size = patch_size
+        self.downsample = downsample
         self.number_of_samples = number_of_samples
         self.number_of_context_samples = number_of_context_samples
         self.classes = classes
@@ -85,6 +89,15 @@ class OpenEarthMapDataset(Dataset):
         label = label[:, x : x + self.patch_size, y : y + self.patch_size]
 
         return image, label
+    
+    def downsample_tensor(self, tensor, factor=2):
+        tensor = torch.from_numpy(tensor)
+        downsampled = F.interpolate(
+            tensor.unsqueeze(0), scale_factor=1 / factor, mode="bilinear", align_corners=False
+        )
+        downsampled = downsampled.squeeze(0)
+        downsampled = downsampled.numpy()
+        return downsampled
 
     def select_random_samples(self, region=None):
         # TODO: Weight probability of each region per number of samples
@@ -110,6 +123,9 @@ class OpenEarthMapDataset(Dataset):
         # TODO: Check if this is necessary
         image = image.astype(np.float32)
         label = label.astype(np.float32)
+
+        image = self.downsample_tensor(image, factor=self.downsample)
+        label = self.downsample_tensor(label, factor=self.downsample)
 
         return image, label, region
 
@@ -138,6 +154,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self,
         data_dir: Path,
         patch_size: int = 256,
+        downsample: int = 2,
         number_of_samples: dict = {"train": 1000, "val": 100, "test": 100},
         number_of_context_samples: dict = {"train": 0, "val": 0, "test": 0},
         classes: list[str] = ["Road"],
@@ -154,6 +171,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
 
         # Dataset parameters
         self.patch_size = patch_size
+        self.downsample = downsample
         self.number_of_samples = number_of_samples
         self.number_of_context_samples = number_of_context_samples
         self.classes = classes
@@ -170,6 +188,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.train_dataset = OpenEarthMapDataset(
             data_dir=self.data_dir,
             patch_size=self.patch_size,
+            downsample=self.downsample,
             number_of_samples=self.number_of_samples["train"],
             number_of_context_samples=self.number_of_context_samples["train"],
             classes=self.classes,
@@ -179,6 +198,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.val_dataset = OpenEarthMapDataset(
             data_dir=self.data_dir,
             patch_size=self.patch_size,
+            downsample=self.downsample,
             number_of_samples=self.number_of_samples["val"],
             number_of_context_samples=self.number_of_context_samples["val"],
             classes=self.classes,
@@ -188,6 +208,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
         self.test_dataset = OpenEarthMapDataset(
             data_dir=self.data_dir,
             patch_size=self.patch_size,
+            downsample=self.downsample,
             number_of_samples=self.number_of_samples["test"],
             number_of_context_samples=self.number_of_context_samples["test"],
             classes=self.classes,
@@ -215,7 +236,7 @@ class OpenEarthMapDataModule(L.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,
-            batch_size=1,
+            batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
             pin_memory=self.pin_memory,

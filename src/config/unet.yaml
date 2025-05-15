@@ -29,6 +29,13 @@ optimizer:
   lr: 1e-3
   weight_decay: 0.01
 
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  max_lr: ${optimizer.lr}
+  epochs: ${trainer.max_epochs}
+  steps_per_epoch: 394
+  anneal_strategy: "cos"
+
 trainer:
   _target_: lightning.Trainer
   default_root_dir: "./logs/"

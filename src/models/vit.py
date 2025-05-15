@@ -6,6 +6,7 @@ from einops import rearrange
 
 from src.model import BaseModel
 from src.models.transformer import Transformer
+from transformers import ViTModel
 
 
 class VisionTransformer(BaseModel):
@@ -20,6 +21,9 @@ class VisionTransformer(BaseModel):
         num_layers: int = 12,
         num_heads: int = 12,
         dropout: float = 0.1,
+        pretrained: bool = False,
+        pretrained_model: str = "google/vit-base-patch16-224-in21k",
+        unfreeze_epoch: int = 0,
         *args,
         **kwargs,
     ):
@@ -27,6 +31,8 @@ class VisionTransformer(BaseModel):
         self.save_hyperparameters()
 
         self.patch_size = patch_size
+        self.pretrained = pretrained
+        self.unfreeze_epoch = unfreeze_epoch
 
         grid_size = img_size // patch_size
         num_patches = grid_size * grid_size
@@ -37,13 +43,21 @@ class VisionTransformer(BaseModel):
 
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_dim))
 
-        self.transformer = Transformer(
-            dim=hidden_dim,
-            depth=num_layers,
-            heads=num_heads,
-            mlp_ratio=mlp_ratio,
-            dropout=dropout,
-        )
+        if not pretrained:
+            self.transformer = Transformer(
+                dim=hidden_dim,
+                depth=num_layers,
+                heads=num_heads,
+                mlp_ratio=mlp_ratio,
+                dropout=dropout,
+            )
+        else:
+            vit = ViTModel.from_pretrained(
+                pretrained_model,
+                add_pooling_layer=False
+            )
+            self.transformer = vit.encoder
+            self._freeze_transformer()
 
         self.output_projection = nn.Linear(
             hidden_dim, patch_size * patch_size * out_channels
@@ -61,6 +75,9 @@ class VisionTransformer(BaseModel):
         x = x + self.pos_embed
 
         x = self.transformer(x)
+
+        if self.pretrained:
+            x = x["last_hidden_state"]
 
         # Shape: (B, num_patches, patch_size * patch_size * out_channels)
         x = self.output_projection(x)
@@ -82,7 +99,7 @@ if __name__ == "__main__":
     out_channels = 1
     img_size = 128
     patch_size = 16
-    hidden_dim = 256
+    hidden_dim = 768
     num_layers = 4
     num_heads = 8
 
@@ -96,6 +113,7 @@ if __name__ == "__main__":
         hidden_dim=hidden_dim,
         num_layers=num_layers,
         num_heads=num_heads,
+        pretrained=True
     )
 
     output_tensor = model(input_tensor)

@@ -62,7 +62,7 @@ class ICS3(BaseModel):
         )
 
     def generate_attn_mask(self, num_blocks: int, num_patches) -> Tensor:
-        blockwise_mask = torch.triu(torch.ones(num_blocks, num_blocks), diagonal=1)
+        blockwise_mask = torch.triu(torch.ones(num_blocks, num_blocks), diagonal=1).to(self.device)
         block = torch.ones((num_patches, num_patches), device=self.device)
         mask = torch.kron(blockwise_mask, block).bool()
         return mask
