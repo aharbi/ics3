@@ -5,7 +5,7 @@ import logging
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
 from lightning.pytorch.loggers import WandbLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from model import BaseModel
 from datamodule import OpenEarthMapDataModule
@@ -42,8 +42,10 @@ def run(cfg: DictConfig):
         mode="max",
     )
 
+    lr_monitor = LearningRateMonitor(logging_interval="step")
+
     trainer: L.Trainer = instantiate(
-        cfg.trainer, logger=logger, callbacks=[checkpoint_callback]
+        cfg.trainer, logger=logger, callbacks=[checkpoint_callback, lr_monitor]
     )
 
     if cfg["experiment"]["train"]:

@@ -199,4 +199,17 @@ class BaseModel(L.LightningModule):
                 ground_truth.save(path_ground_truth)
 
     def configure_optimizers(self):
-        return instantiate(self.cfg.optimizer, params=self.parameters())
+        optimizer = instantiate(self.cfg.optimizer, params=self.parameters())
+
+        if getattr(self.cfg, "lr_scheduler", None) is not None:
+            scheduler = instantiate(self.cfg.lr_scheduler, optimizer=optimizer)
+
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "step",
+                },
+            }
+
+        return optimizer
