@@ -15,7 +15,6 @@ number_of_context_samples:
   test: 0
 
 classes:
-  - "Road"
   - "Building"
 
 regions:

@@ -45,13 +45,9 @@ class UNet(BaseModel):
             add_attention=add_attention,
         )
 
-        self.output_activation = nn.Sigmoid()
-
     def forward(self, x: Tensor) -> Tensor:
 
         x = self.unet(x, timestep=0).sample
-
-        x = self.output_activation(x)
 
         return x
 

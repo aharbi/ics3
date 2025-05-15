@@ -61,8 +61,6 @@ class ICS3(BaseModel):
             hidden_dim, patch_size * patch_size * out_channels
         )
 
-        self.output_activation = nn.Sigmoid()
-
     def generate_attn_mask(self, num_blocks: int, num_patches) -> Tensor:
         blockwise_mask = torch.triu(torch.ones(num_blocks, num_blocks), diagonal=1)
         block = torch.ones((num_patches, num_patches), device=self.device)
@@ -104,7 +102,6 @@ class ICS3(BaseModel):
 
         x = self.transformer(x, attn_mask=attn_mask)
         x = self.output_projection(x)
-        x = self.output_activation(x)
 
         return x
 

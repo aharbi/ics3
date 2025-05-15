@@ -107,6 +107,8 @@ class BaseModel(L.LightningModule):
 
         loss = self.loss(y_hat, y)
 
+        y_hat = torch.sigmoid(y_hat)
+
         y_hat_binary = (y_hat > 0.5).long()
         y_binary = (y > 0.5).long()
 

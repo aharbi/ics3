@@ -7,7 +7,7 @@ from torch import Tensor
 class BCEDiceLoss(torch.nn.Module):
     def __init__(self, alpha: float = 1.0, eps: float = 1e-6):
         super().__init__()
-        self.bce = nn.BCELoss()
+        self.bce = nn.BCEWithLogitsLoss()
         self.alpha = alpha
         self.eps = eps
 

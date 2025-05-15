@@ -49,8 +49,6 @@ class VisionTransformer(BaseModel):
             hidden_dim, patch_size * patch_size * out_channels
         )
 
-        self.output_activation = nn.Sigmoid()
-
     def forward(self, x: Tensor) -> Tensor:
         B, C, H, W = x.shape
 
@@ -66,7 +64,6 @@ class VisionTransformer(BaseModel):
 
         # Shape: (B, num_patches, patch_size * patch_size * out_channels)
         x = self.output_projection(x)
-        x = self.output_activation(x)
 
         x = rearrange(
             x,

@@ -18,7 +18,7 @@ experiment:
   checkpoint: null
 
 datamodule:
-  batch_size: 32
+  batch_size: 16
   number_of_context_samples:
     train: 8
     val: 8
@@ -26,7 +26,7 @@ datamodule:
 
 loss:
   _target_: loss.BCEDiceLoss
-  alpha: 0.5
+  alpha: 0.95
 
 optimizer:
   _target_: torch.optim.AdamW
