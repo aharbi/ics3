@@ -7,5 +7,5 @@ hidden_dim: 768
 mlp_ratio: 4
 num_layers: 12
 num_heads: 12
-pretrained: true
-unfreeze_epoch: 5
+pretrained: false
+unfreeze_epoch: 0

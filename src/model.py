@@ -1,4 +1,5 @@
 import torch
+import random
 import lightning as L
 
 from pathlib import Path
@@ -39,7 +40,7 @@ class BaseModel(L.LightningModule):
         if cfg is not None:
             self.loss_fn = instantiate(cfg.loss)
 
-    def predict(self, x: Tensor, context_set: list = None):
+    def predict(self, x, context_set_images=None, context_set_labels=None):
         y_hat = self(x)
         return y_hat
 
@@ -66,19 +67,19 @@ class BaseModel(L.LightningModule):
     def training_step(self, batch, batch_idx):
         x = batch["satellite_image"]
         y = batch["label"]
-        context_set = batch["context_set"]
+        context_set_images = batch["context_set_images"]
+        context_set_labels = batch["context_set_labels"]
 
-        y_hat = self.predict(x=x, context_set=context_set)
+        # Sample a random context set
+        if type(context_set_images) != list:
+            N_max = self.cfg.datamodule.number_of_context_samples.train
+            n = random.randint(1, N_max + 1)
+            context_set_images = context_set_images[:, :n, :, :]
+            context_set_labels = context_set_labels[:, :n, :, :]
 
-        if type(y_hat) is list:
-            loss = []
-            for i in range(len(y_hat) - 1):
-                y_i = context_set[i][1]
-                loss.append(self.loss(y_hat[i], y_i))
-            loss.append(self.loss(y_hat[-1], y))
-            loss = torch.stack(loss).mean()
-        else:
-            loss = self.loss(y_hat, y)
+        y_hat = self.predict(x=x, context_set_images=context_set_images, context_set_labels=context_set_labels)
+
+        loss = self.loss(y_hat, y)
 
         batch_size = x.shape[0]
 
@@ -115,13 +116,11 @@ class BaseModel(L.LightningModule):
     ):
         x = batch["satellite_image"]
         y = batch["label"]
-        context_set = batch["context_set"]
+        context_set_images = batch["context_set_images"]
+        context_set_labels = batch["context_set_labels"]
         regions = batch["region"]
 
-        y_hat = self.predict(x=x, context_set=context_set)
-
-        if type(y_hat) is list:
-            y_hat = y_hat[-1]
+        y_hat = self.predict(x=x, context_set_images=context_set_images, context_set_labels=context_set_labels)
 
         loss = self.loss(y_hat, y)
 

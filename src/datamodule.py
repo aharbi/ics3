@@ -135,17 +135,24 @@ class OpenEarthMapDataset(Dataset):
     def __getitem__(self, idx):
         image, label, region = self.select_random_samples()
 
-        context_set = []
+        context_set_images = []
+        context_set_labels = []
 
         for _ in range(self.number_of_context_samples):
             context_image, context_label, _ = self.select_random_samples(region=region)
-            context_set.append((context_image, context_label))
+            context_set_images.append(context_image)
+            context_set_labels.append(context_label)
+
+        if len(context_set_images) > 0:
+            context_set_images = np.stack(context_set_images, axis=0)
+            context_set_labels = np.stack(context_set_labels, axis=0)
 
         return {
             "satellite_image": image,
             "label": label,
             "region": region,
-            "context_set": context_set,
+            "context_set_images": context_set_images,
+            "context_set_labels": context_set_labels,
         }
 
 
