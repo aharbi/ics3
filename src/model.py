@@ -1,3 +1,4 @@
+import torch
 import lightning as L
 
 from pathlib import Path
@@ -52,11 +53,12 @@ class BaseModel(L.LightningModule):
         y_hat = self.predict(x=x, context_set=context_set)
 
         if type(y_hat) is list:
-            loss = 0
+            loss = []
             for i in range(len(y_hat) - 1):
                 y_i = context_set[i][1]
-                loss += self.loss(y_hat[i], y_i)
-            loss += self.loss(y_hat[-1], y)
+                loss.append(self.loss(y_hat[i], y_i))
+            loss.append(self.loss(y_hat[-1], y))
+            loss = torch.stack(loss).mean()
         else:
             loss = self.loss(y_hat, y)
 
