@@ -73,9 +73,14 @@ class BaseModel(L.LightningModule):
         # Sample a random context set
         if type(context_set_images) != list:
             N_max = self.cfg.datamodule.number_of_context_samples.train
-            n = random.randint(1, N_max + 1)
-            context_set_images = context_set_images[:, :n, :, :]
-            context_set_labels = context_set_labels[:, :n, :, :]
+            n = random.randint(0, N_max + 1)
+
+            if n != 0:
+                context_set_images = context_set_images[:, :n, :, :]
+                context_set_labels = context_set_labels[:, :n, :, :]
+            else:
+                context_set_images = []
+                context_set_labels = []
 
         y_hat = self.predict(x=x, context_set_images=context_set_images, context_set_labels=context_set_labels)
 

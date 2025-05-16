@@ -59,6 +59,7 @@ class ICS3(BaseModel):
         )
         self.image_pos_embed = nn.Parameter(torch.zeros(1, hidden_dim))
         self.label_pos_embed = nn.Parameter(torch.zeros(1, hidden_dim))
+        self.learnable_embed = nn.Parameter(torch.zeros(1, 1, hidden_dim))
 
         self.unet = UNet2DConditionModel(
             sample_size=sample_size,
@@ -104,38 +105,45 @@ class ICS3(BaseModel):
 
     def forward(self, x: Tensor, context: Tensor = None) -> Tensor:
         
-        if context is not None:
-            x = self.unet(sample=x, timestep=0, encoder_hidden_states=context)
-        else:
-            x = self.unet(sample=x, timestep=0)
-
-        x = x.sample
+        x = self.unet(sample=x, timestep=0, encoder_hidden_states=context).sample
 
         return x
 
     def predict(self, x, context_set_images=None, context_set_labels=None):
 
-        _, M, _, _, _ = context_set_images.shape
 
-        context_pos_embeds = self.sinusoidal_positional_embedding(M)
-        context_pos_embeds = context_pos_embeds.to(self.device)
+        if type(context_set_images) != list:
+            B, M, _, _, _ = context_set_images.shape
 
-        context = []
+            learnable_embed = self.learnable_embed.expand(B, -1, -1)
 
-        for i in range(M):
-            image = self.tokenize_image(
-                context_set_images[:, i, :, :, :], context_pos_embeds[:, i, :]
-            )
-            label = self.tokenize_label(
-                context_set_labels[:, i, :, :, :], context_pos_embeds[:, i, :]
-            )
+            context_pos_embeds = self.sinusoidal_positional_embedding(M)
+            context_pos_embeds = context_pos_embeds.to(self.device)
 
-            context.append((image, label))
+            context = []
 
-        context = [item for sublist in context for item in sublist]
-        context = torch.cat(context, dim=1)
+            for i in range(M):
+                image = self.tokenize_image(
+                    context_set_images[:, i, :, :, :], context_pos_embeds[:, i, :]
+                )
+                label = self.tokenize_label(
+                    context_set_labels[:, i, :, :, :], context_pos_embeds[:, i, :]
+                )
 
-        y_hat = self(x, context=context)
+                context.append((image, label))
+
+            context = [item for sublist in context for item in sublist]
+            context = torch.cat(context, dim=1)
+
+            context_set = torch.cat([learnable_embed, context], dim=1)
+        else:
+            B, _, _, _ = x.shape
+
+            learnable_embed = self.learnable_embed.expand(B, -1, -1)
+
+            context_set = torch.cat([learnable_embed], dim=1)
+
+        y_hat = self(x, context=context_set)
 
         return y_hat
 

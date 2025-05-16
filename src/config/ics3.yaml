@@ -20,13 +20,13 @@ experiment:
 datamodule:
   batch_size: 16
   number_of_context_samples:
-    train: 16
-    val: 16
-    test: 16
+    train: 8
+    val: 8
+    test: 8
 
 loss:
   _target_: loss.BCEDiceLoss
-  alpha: 0.95
+  alpha: 0.999
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -47,6 +47,7 @@ trainer:
   _target_: lightning.Trainer
   default_root_dir: "./logs/"
   log_every_n_steps: 1
+  gradient_clip_val: 1
   accelerator: "cuda"
   precision: "bf16-mixed"
   max_epochs: 60
