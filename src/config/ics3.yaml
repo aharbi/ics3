@@ -26,7 +26,7 @@ datamodule:
 
 loss:
   _target_: loss.BCEDiceLoss
-  alpha: 0.999
+  alpha: 1.0
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -50,4 +50,4 @@ trainer:
   gradient_clip_val: 1
   accelerator: "cuda"
   precision: "bf16-mixed"
-  max_epochs: 60
+  max_epochs: 200

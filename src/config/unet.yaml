@@ -22,7 +22,7 @@ datamodule:
 
 loss:
   _target_: loss.BCEDiceLoss
-  alpha: 0.95
+  alpha: 1.0
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -45,4 +45,4 @@ trainer:
   log_every_n_steps: 1
   accelerator: "cuda"
   precision: "bf16-mixed"
-  max_epochs: 60
+  max_epochs: 200
