@@ -26,14 +26,14 @@ loss:
 
 optimizer:
   _target_: torch.optim.AdamW
-  lr: 1e-3
+  lr: 3e-4
   weight_decay: 0.01
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
   max_lr: ${optimizer.lr}
   epochs: ${trainer.max_epochs}
-  steps_per_epoch: 394
+  steps_per_epoch: 197
   anneal_strategy: "cos"
   pct_start: 0.1
   div_factor: 25
@@ -43,6 +43,9 @@ trainer:
   _target_: lightning.Trainer
   default_root_dir: "./logs/"
   log_every_n_steps: 1
+  gradient_clip_val: 1
+  accumulate_grad_batches: 2
   accelerator: "cuda"
-  precision: "bf16-mixed"
+  precision: 16
   max_epochs: 200
+  check_val_every_n_epoch: 10
